@@ -2,6 +2,7 @@ import './App.scss';
 import React, { useState } from 'react';
 import usersFromServer from './api/users';
 import todosFromServer from './api/todos';
+import TodoList from './components/TodoList/TodoList';
 
 interface User {
   id: number;
@@ -89,7 +90,7 @@ export const App: React.FC = () => {
         </div>
 
         <div className="field">
-          <label htmlFor="userSelect">Choose a user</label>
+          <label htmlFor="userSelect">User</label>
           <select
             id="userSelect"
             data-cy="userSelect"
@@ -116,23 +117,7 @@ export const App: React.FC = () => {
         </button>
       </form>
 
-      <section className="TodoList">
-        {todos.map(todo => (
-          <article
-            key={todo.id}
-            data-id={todo.id}
-            className={`TodoInfo ${
-              todo.completed ? 'TodoInfo--completed' : ''
-            }`}
-          >
-            <h2 className="TodoInfo__title">{todo.title}</h2>
-
-            <a className="UserInfo" href={`mailto:${todo.user.email}`}>
-              {todo.user.name}
-            </a>
-          </article>
-        ))}
-      </section>
+      <TodoList todos={todos} />
     </div>
   );
 };
