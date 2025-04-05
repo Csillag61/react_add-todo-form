@@ -1,60 +1,137 @@
 import './App.scss';
+import React, { useState } from 'react';
+import usersFromServer from './api/users';
+import todosFromServer from './api/todos';
 
-// import usersFromServer from './api/users';
-// import todosFromServer from './api/todos';
+interface User {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+}
 
-export const App = () => {
+interface Todo {
+  id: number;
+  title: string;
+  completed: boolean;
+  userId: number;
+  user: User;
+}
+
+const users: User[] = usersFromServer;
+const enrichedTodos: Todo[] = todosFromServer.map(todo => ({
+  ...todo,
+  user: users.find(user => user.id === todo.userId) as User, // Match user by userId
+}));
+
+export const App: React.FC = () => {
+  const [todos, setTodos] = useState<Todo[]>(enrichedTodos);
+  const [title, setTitle] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
+  const [errors, setErrors] = useState({ title: '', userId: '' });
+
+  const handleAddTodo = () => {
+    const newErrors = {
+      title: title ? '' : 'Please enter a title',
+      userId: selectedUserId ? '' : 'Please choose a user',
+    };
+
+    setErrors(newErrors);
+
+    if (newErrors.title || newErrors.userId) {
+      return;
+    }
+
+    const selectedUser = users.find(user => user.id === selectedUserId);
+
+    const newTodo: Todo = {
+      id: todos.length > 0 ? Math.max(...todos.map(todo => todo.id)) + 1 : 1,
+      title,
+      userId: selectedUserId as number,
+      completed: false,
+      user: selectedUser as User,
+    };
+
+    setTodos(prevTodos => [...prevTodos, newTodo]);
+
+    setTitle('');
+    setSelectedUserId('');
+    setErrors({ title: '', userId: '' });
+  };
+
   return (
     <div className="App">
       <h1>Add todo form</h1>
 
-      <form action="/api/todos" method="POST">
+      <form
+        className="todo-form"
+        onSubmit={e => {
+          e.preventDefault();
+          handleAddTodo();
+        }}
+      >
         <div className="field">
-          <input type="text" data-cy="titleInput" />
-          <span className="error">Please enter a title</span>
+          <label htmlFor="titleInput">Title</label>
+          <input
+            type="text"
+            id="titleInput"
+            data-cy="titleInput"
+            placeholder="Enter todo title"
+            value={title}
+            onChange={e => {
+              setTitle(e.target.value);
+              if (errors.title) {
+                setErrors(prev => ({ ...prev, title: '' }));
+              }
+            }}
+          />
+          {errors.title && <span className="error">{errors.title}</span>}
         </div>
 
         <div className="field">
-          <select data-cy="userSelect">
-            <option value="0" disabled>
-              Choose a user
-            </option>
+          <label htmlFor="userSelect">Choose a user</label>
+          <select
+            id="userSelect"
+            data-cy="userSelect"
+            value={selectedUserId}
+            onChange={e => {
+              setSelectedUserId(Number(e.target.value) || '');
+              if (errors.userId) {
+                setErrors(prev => ({ ...prev, userId: '' }));
+              }
+            }}
+          >
+            <option value="">Choose a user</option>
+            {users.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
           </select>
-
-          <span className="error">Please choose a user</span>
+          {errors.userId && <span className="error">{errors.userId}</span>}
         </div>
 
-        <button type="submit" data-cy="submitButton">
+        <button type="submit" data-cy="submitButton" className="button">
           Add
         </button>
       </form>
 
       <section className="TodoList">
-        <article data-id="1" className="TodoInfo TodoInfo--completed">
-          <h2 className="TodoInfo__title">delectus aut autem</h2>
+        {todos.map(todo => (
+          <article
+            key={todo.id}
+            data-id={todo.id}
+            className={`TodoInfo ${
+              todo.completed ? 'TodoInfo--completed' : ''
+            }`}
+          >
+            <h2 className="TodoInfo__title">{todo.title}</h2>
 
-          <a className="UserInfo" href="mailto:Sincere@april.biz">
-            Leanne Graham
-          </a>
-        </article>
-
-        <article data-id="15" className="TodoInfo TodoInfo--completed">
-          <h2 className="TodoInfo__title">delectus aut autem</h2>
-
-          <a className="UserInfo" href="mailto:Sincere@april.biz">
-            Leanne Graham
-          </a>
-        </article>
-
-        <article data-id="2" className="TodoInfo">
-          <h2 className="TodoInfo__title">
-            quis ut nam facilis et officia qui
-          </h2>
-
-          <a className="UserInfo" href="mailto:Julianne.OConner@kory.org">
-            Patricia Lebsack
-          </a>
-        </article>
+            <a className="UserInfo" href={`mailto:${todo.user.email}`}>
+              {todo.user.name}
+            </a>
+          </article>
+        ))}
       </section>
     </div>
   );
