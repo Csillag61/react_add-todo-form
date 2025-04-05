@@ -1,7 +1,5 @@
 import './App.scss';
 import React, { useState } from 'react';
-import usersFromServer from './api/users';
-import todosFromServer from './api/todos';
 import TodoList from './components/TodoList/TodoList';
 
 interface User {
@@ -19,13 +17,26 @@ interface Todo {
   user: User;
 }
 
-const users: User[] = usersFromServer;
-const enrichedTodos: Todo[] = todosFromServer.map(todo => ({
-  ...todo,
-  user: users.find(user => user.id === todo.userId) as User, // Match user by userId
-}));
+interface AppProps {
+  initialUsers: User[];
+  initialTodos: Todo[];
+}
 
-export const App: React.FC = () => {
+export const App: React.FC<AppProps> = ({ initialUsers, initialTodos }) => {
+  const enrichedTodos: Todo[] = initialTodos.map(todo => {
+    const matchedUser = initialUsers.find(user => user.id === todo.userId);
+
+    return {
+      ...todo,
+      user: matchedUser ?? {
+        id: 0,
+        name: 'Unknown',
+        username: 'unknown',
+        email: 'unknown@example.com',
+      }, // Fallback user
+    };
+  });
+
   const [todos, setTodos] = useState<Todo[]>(enrichedTodos);
   const [title, setTitle] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
@@ -43,14 +54,21 @@ export const App: React.FC = () => {
       return;
     }
 
-    const selectedUser = users.find(user => user.id === selectedUserId);
+    const selectedUser = initialUsers.find(
+      user => user.id === selectedUserId,
+    ) ?? {
+      id: 0,
+      name: 'Unknown',
+      username: 'unknown',
+      email: 'unknown@example.com',
+    };
 
     const newTodo: Todo = {
       id: todos.length > 0 ? Math.max(...todos.map(todo => todo.id)) + 1 : 1,
       title,
-      userId: selectedUserId as number,
+      userId: typeof selectedUserId === 'number' ? selectedUserId : 0,
       completed: false,
-      user: selectedUser as User,
+      user: selectedUser,
     };
 
     setTodos(prevTodos => [...prevTodos, newTodo]);
@@ -76,7 +94,6 @@ export const App: React.FC = () => {
           <input
             type="text"
             id="titleInput"
-            data-cy="titleInput"
             placeholder="Enter todo title"
             value={title}
             onChange={e => {
@@ -93,17 +110,18 @@ export const App: React.FC = () => {
           <label htmlFor="userSelect">User</label>
           <select
             id="userSelect"
-            data-cy="userSelect"
             value={selectedUserId}
             onChange={e => {
-              setSelectedUserId(Number(e.target.value) || '');
+              const value = Number(e.target.value);
+
+              setSelectedUserId(isNaN(value) ? '' : value);
               if (errors.userId) {
                 setErrors(prev => ({ ...prev, userId: '' }));
               }
             }}
           >
             <option value="">Choose a user</option>
-            {users.map(user => (
+            {initialUsers.map(user => (
               <option key={user.id} value={user.id}>
                 {user.name}
               </option>
@@ -112,7 +130,7 @@ export const App: React.FC = () => {
           {errors.userId && <span className="error">{errors.userId}</span>}
         </div>
 
-        <button type="submit" data-cy="submitButton" className="button">
+        <button type="submit" className="button">
           Add
         </button>
       </form>
